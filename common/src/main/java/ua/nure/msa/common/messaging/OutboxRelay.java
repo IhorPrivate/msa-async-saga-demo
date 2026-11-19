@@ -1,6 +1,7 @@
 package ua.nure.msa.common.messaging;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +41,34 @@ public class OutboxRelay {
     @Scheduled(fixedDelayString = "${outbox.poll-ms:500}")
     @Transactional
     public void publishPending() { // [S4]
-        // TODO [S4]: SELECT … FOR UPDATE SKIP LOCKED → publishToRabbit → publishToKafka (лише події) → UPDATE published_at
+        // SKIP LOCKED: кілька екземплярів сервісу не чіпають рядки один одного
+        List<Pending> batch = jdbc.sql("""
+                        SELECT id, aggregate_id, exchange, routing_key, payload
+                        FROM outbox
+                        WHERE published_at IS NULL
+                        ORDER BY created_at
+                        LIMIT 50
+                        FOR UPDATE SKIP LOCKED
+                        """)
+                .query((rs, rowNum) -> new Pending(
+                        rs.getObject("id", UUID.class),
+                        rs.getObject("aggregate_id", UUID.class),
+                        rs.getString("exchange"),
+                        rs.getString("routing_key"),
+                        rs.getString("payload")))
+                .list();
+
+        for (Pending row : batch) {
+            publishToRabbit(row);
+            if (Topology.EVENTS_EXCHANGE.equals(row.exchange())) {
+                publishToKafka(row);
+            }
+            // Будь-який збій вище кидає виняток: транзакція відкочується, рядок буде повторено.
+            // Тому доставка at-least-once, а споживачі мають бути ідемпотентними (Inbox).
+            jdbc.sql("UPDATE outbox SET published_at = now() WHERE id = ?")
+                    .param(row.id())
+                    .update();
+        }
     }
 
     private void publishToRabbit(Pending row) {

@@ -3,30 +3,31 @@ package ua.nure.msa.order;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import ua.nure.msa.common.contracts.ReserveStock;
+import ua.nure.msa.common.messaging.Outbox;
 import ua.nure.msa.common.messaging.Topology;
 
-/** Старт саги: зберігає замовлення й шле команду складу. */
+/** Старт саги: зберігає замовлення й у тій самій транзакції кладе перше повідомлення в outbox. */
 @Service
 public class OrderService {
 
     private final OrderRepository orders;
-    private final RabbitTemplate rabbit;
+    private final Outbox outbox;
 
-    public OrderService(OrderRepository orders, RabbitTemplate rabbit) {
+    public OrderService(OrderRepository orders, Outbox outbox) {
         this.orders = orders;
-        this.rabbit = rabbit;
+        this.outbox = outbox;
     }
 
     @Transactional
     public Order create(String sku, int quantity, BigDecimal amount) {
         Order order = new Order(UUID.randomUUID(), sku, quantity, amount, OrderStatus.PENDING);
         orders.insert(order);
-        rabbit.convertAndSend(Topology.Q_INVENTORY_RESERVE, new ReserveStock(order.id(), sku, quantity)); // [S1] default exchange: routing key = ім'я черги
+        // Запис у БД і повідомлення — одна транзакція, тому dual write неможливий
+        outbox.command(order.id(), Topology.Q_INVENTORY_RESERVE, new ReserveStock(order.id(), sku, quantity)); // [S4]
         return order;
     }
 }
