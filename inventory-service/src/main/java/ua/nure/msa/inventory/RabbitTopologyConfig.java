@@ -10,7 +10,10 @@ import ua.nure.msa.common.messaging.Topology;
 @Configuration
 public class RabbitTopologyConfig {
 
-    // TODO [S1]: черга inventory.reserve
+    @Bean // [S1]
+    Queue inventoryReserveQueue() {
+        return Topology.commandQueue(Topology.Q_INVENTORY_RESERVE);
+    }
 
     /** Команда компенсації існує лише в оркестрації. */
     @OrchestrationMode
