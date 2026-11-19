@@ -18,6 +18,10 @@ public class Inbox {
     // MANDATORY: запис у inbox і бізнес-зміна мають комітитись разом, інакше дедуплікація не працює
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean firstTime(String messageId, String consumer) { // [S5]
-        throw new UnsupportedOperationException("TODO [S5]: INSERT … ON CONFLICT DO NOTHING");
+        int inserted = jdbc.sql("INSERT INTO processed_messages(message_id, consumer) VALUES (?, ?) ON CONFLICT DO NOTHING")
+                .param(messageId)
+                .param(consumer)
+                .update();
+        return inserted == 1;
     }
 }
