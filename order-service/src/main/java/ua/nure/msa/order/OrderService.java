@@ -1,6 +1,7 @@
 package ua.nure.msa.order;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -16,10 +17,13 @@ public class OrderService {
 
     private final OrderRepository orders;
     private final Outbox outbox;
+    // Оркестратор існує лише в режимі orchestration; у хореографії Optional порожній
+    private final Optional<OrderSagaOrchestrator> orchestrator;
 
-    public OrderService(OrderRepository orders, Outbox outbox) {
+    public OrderService(OrderRepository orders, Outbox outbox, Optional<OrderSagaOrchestrator> orchestrator) {
         this.orders = orders;
         this.outbox = outbox;
+        this.orchestrator = orchestrator;
     }
 
     @Transactional
@@ -27,7 +31,9 @@ public class OrderService {
         Order order = new Order(UUID.randomUUID(), sku, quantity, amount, OrderStatus.PENDING);
         orders.insert(order);
         // Запис у БД і повідомлення — одна транзакція, тому dual write неможливий
-        outbox.event(order.id(), Topology.RK_ORDER_CREATED, new OrderCreated(order.id(), sku, quantity, amount)); // [S6]
+        orchestrator.ifPresentOrElse(o -> o.start(order), // [S7] режим orchestration; гілка нижче — [S6]
+                () -> outbox.event(order.id(), Topology.RK_ORDER_CREATED,
+                        new OrderCreated(order.id(), sku, quantity, amount))); // [S4]
         return order;
     }
 }
