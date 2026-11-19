@@ -19,7 +19,10 @@ public class RabbitTopologyConfig {
         // Кожна подія має власну чергу, щоб повільний обробник не блокував решту
         List<Declarable> all = List.of(
                 Topology.eventQueue("order.on-stock-reserved", Topology.RK_STOCK_RESERVED),
-                Topology.eventQueue("order.on-stock-rejected", Topology.RK_STOCK_REJECTED))
+                Topology.eventQueue("order.on-stock-rejected", Topology.RK_STOCK_REJECTED),
+                Topology.eventQueue("order.on-stock-released", Topology.RK_STOCK_RELEASED),
+                Topology.eventQueue("order.on-payment-completed", Topology.RK_PAYMENT_COMPLETED),
+                Topology.eventQueue("order.on-payment-failed", Topology.RK_PAYMENT_FAILED))
                 .stream().flatMap(d -> d.getDeclarables().stream()).toList();
         return new Declarables(all);
     }

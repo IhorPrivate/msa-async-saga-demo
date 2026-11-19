@@ -6,7 +6,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import ua.nure.msa.common.contracts.ReserveStock;
+import ua.nure.msa.common.contracts.OrderCreated;
 import ua.nure.msa.common.messaging.Outbox;
 import ua.nure.msa.common.messaging.Topology;
 
@@ -27,7 +27,7 @@ public class OrderService {
         Order order = new Order(UUID.randomUUID(), sku, quantity, amount, OrderStatus.PENDING);
         orders.insert(order);
         // Запис у БД і повідомлення — одна транзакція, тому dual write неможливий
-        outbox.command(order.id(), Topology.Q_INVENTORY_RESERVE, new ReserveStock(order.id(), sku, quantity)); // [S4]
+        outbox.event(order.id(), Topology.RK_ORDER_CREATED, new OrderCreated(order.id(), sku, quantity, amount)); // [S6]
         return order;
     }
 }
