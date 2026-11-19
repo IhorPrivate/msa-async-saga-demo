@@ -1,0 +1,31 @@
+### Щасливий шлях: COFFEE, 2 шт., 250 -> очікуємо COMPLETED
+# @name happy
+POST http://localhost:8081/orders
+Content-Type: application/json
+
+{ "sku": "COFFEE", "quantity": 2, "amount": 250.00 }
+
+> {% client.global.set("orderId", response.body.orderId); %}
+
+### Оплату відхилено: сума > 1000 -> компенсація -> CANCELLED
+# @name payment_refused
+POST http://localhost:8081/orders
+Content-Type: application/json
+
+{ "sku": "COFFEE", "quantity": 1, "amount": 5000.00 }
+
+> {% client.global.set("orderId", response.body.orderId); %}
+
+### Немає на складі: TEA (залишок 0) -> CANCELLED без компенсації
+# @name out_of_stock
+POST http://localhost:8081/orders
+Content-Type: application/json
+
+{ "sku": "TEA", "quantity": 1, "amount": 100.00 }
+
+> {% client.global.set("orderId", response.body.orderId); %}
+
+### Статус останнього створеного замовлення (використовує orderId зі змінної)
+# @name get_order
+GET http://localhost:8081/orders/{{orderId}}
+Accept: application/json

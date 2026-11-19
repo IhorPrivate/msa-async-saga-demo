@@ -1,0 +1,5 @@
+server.port: 8084
+spring:
+  application.name: notification-service
+  config.import: classpath:shared.yml
+  datasource.url: jdbc:postgresql://localhost:5432/notifications

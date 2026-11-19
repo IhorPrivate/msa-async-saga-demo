@@ -1,0 +1,41 @@
+# Імпортований файл має пріоритет над application.yml сервісу, тому тут лише ключі, яких сервіс не задає.
+# Аргументи командного рядка (--saga.mode=orchestration) мають пріоритет над обома.
+spring:
+  datasource:
+    username: shop
+    password: shop
+  sql:
+    init:
+      mode: always
+      schema-locations:
+        - classpath:schema-common.sql
+        - classpath:schema.sql
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    publisher-confirm-type: simple
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          # У Boot 4 max-retries = кількість повторів ПІСЛЯ першої спроби: 2 повтори = 3 спроби всього
+          max-retries: 2
+          initial-interval: 1s
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+
+saga:
+  mode: choreography
+
+outbox:
+  poll-ms: 500
